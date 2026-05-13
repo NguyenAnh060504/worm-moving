@@ -25,13 +25,14 @@ resize();
 const images = {
     head: new Image(),
     body: new Image(),
-    tail: new Image()
+    tail: new Image(),
+    shadow: new Image()
 };
 
 let loadedCount = 0;
 function checkLoad() {
     loadedCount++;
-    if (loadedCount === 3) {
+    if (loadedCount === 4) {
         wormX = gameWidth / 2;
         wormY = gameHeight / 2;
         requestAnimationFrame(update);
@@ -41,10 +42,12 @@ function checkLoad() {
 images.head.onload = checkLoad;
 images.body.onload = checkLoad;
 images.tail.onload = checkLoad;
+images.shadow.onload = checkLoad;
 
 images.head.src = 'sâu/sâu nor/đầu.png';
 images.body.src = 'sâu/sâu nor/thân.png';
 images.tail.src = 'sâu/sâu nor/đuôi.png';
+images.shadow.src = 'sâu/another/shadow.png';
 
 let wormX = 0;
 let wormY = 0;
@@ -208,17 +211,16 @@ function update(timestamp) {
     
     // Khi nhấc lên cao, bóng thu nhỏ lại và mờ nhòe đi
     const shadowPopScale = 1 - (liftHeight / 80) * 0.6; // Thu nhỏ tới 60%
-    ctx.scale(scaleX * shadowPopScale, 1 * shadowPopScale);
+    ctx.scale(facingX * scaleX * shadowPopScale, scaleY * shadowPopScale);
 
-    ctx.beginPath();
-    const shadowRx = (images.body.width * scale) * 0.7 / 3; 
-    const shadowRy = (images.body.width * scale) * 0.25 / 3; 
-    ctx.ellipse(0, 2, shadowRx, shadowRy, 0, 0, Math.PI * 2);
-
-    // Mờ đi và nhòe hơn tùy độ cao nhấc
-    ctx.fillStyle = `rgba(0, 0, 0, ${0.3 * (1 - (liftHeight/80)*0.8)})`;
-    ctx.filter = `blur(${1 + (liftHeight/80)*8}px)`; 
-    ctx.fill();
+    ctx.globalAlpha = 1 - (liftHeight / 80) * 0.5;
+    ctx.drawImage(
+        images.shadow, 
+        -images.shadow.width * scale / 2, 
+        -images.shadow.height * scale / 2, 
+        images.shadow.width * scale, 
+        images.shadow.height * scale
+    );
     ctx.restore();
 
     // === VẼ CON SÂU CHÍNH ===
