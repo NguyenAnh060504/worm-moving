@@ -9,7 +9,49 @@
 </head>
 
 <body>
+    <div id="accountPanel" class="account-panel">
+        <div class="account-header">
+            <select id="accountSelect"></select>
+            <button id="newAccountBtn">+ Tài khoản</button>
+        </div>
+    </div>
+
+    <div id="toggleBtn">📋 Xem danh sách sâu</div>
     <canvas id="gameCanvas"></canvas>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Danh sách sâu</h2>
+            <ul id="wormList"></ul>
+            <div id="geneInfo"></div>
+        </div>
+    </div>
+
+    <div id="hatchModal" class="modal">
+        <div class="modal-content">
+            <h2>🎉 Chúc mừng!</h2>
+            <p>Bạn đã nhận được một con sâu mới</p>
+            <div id="hatchInfo">
+                <div class="body-parts">
+                    <div class="part">
+                        <label>Đầu:</label>
+                        <img id="hatchHead" width="60" height="60">
+                    </div>
+                    <div class="part">
+                        <label>Thân:</label>
+                        <img id="hatchBody" width="60" height="60">
+                    </div>
+                    <div class="part">
+                        <label>Đuôi:</label>
+                        <img id="hatchTail" width="60" height="60">
+                    </div>
+                </div>
+            </div>
+            <button id="hatchOkBtn">OK</button>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 
