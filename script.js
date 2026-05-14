@@ -7,6 +7,7 @@ let gameHeight = window.innerHeight;
 
 // --- QUẢN LÝ TÀI KHOẢN ---
 let currentAccountId = null;
+let lockedVariants = {};
 
 function initializeAccount() {
     const stored = localStorage.getItem('accounts');
@@ -23,6 +24,7 @@ function initializeAccount() {
     }
 
     localStorage.setItem('lastAccount', currentAccountId);
+    loadLocked();
     updateAccountSelect();
 }
 
@@ -42,12 +44,18 @@ function updateAccountSelect() {
 }
 
 function switchAccount(accountId) {
+    saveWormsToStorage();
+    saveLocked();
     currentAccountId = accountId;
     localStorage.setItem('lastAccount', accountId);
-    loadWormsFromStorage();
+
     worms = [];
     eggs = [];
     selectedWorm = null;
+
+    loadLocked();
+    loadWormsFromStorage();
+    updateWormList();
 }
 
 function createNewAccount() {
@@ -73,22 +81,63 @@ function saveWormsToStorage() {
         y: w.y
     }));
 
+    const eggsData = eggs.map(e => ({
+        genes: e.genes,
+        x: e.x,
+        y: e.y,
+        createdTime: e.createdTime
+    }));
+
     localStorage.setItem(`worms_${currentAccountId}`, JSON.stringify(wormsData));
+    localStorage.setItem(`eggs_${currentAccountId}`, JSON.stringify(eggsData));
 }
 
 function loadWormsFromStorage() {
-    if (!currentAccountId) return [];
+    if (!currentAccountId) return;
 
     const stored = localStorage.getItem(`worms_${currentAccountId}`);
-    if (!stored) return [];
+    if (stored) {
+        const wormsData = JSON.parse(stored);
+        worms = wormsData.map(data => {
+            const w = new Worm(data.genes);
+            w.x = data.x;
+            w.y = data.y;
+            return w;
+        });
+    }
 
-    const wormsData = JSON.parse(stored);
-    worms = wormsData.map(data => {
-        const w = new Worm(data.genes);
-        w.x = data.x;
-        w.y = data.y;
-        return w;
-    });
+    const eggsStored = localStorage.getItem(`eggs_${currentAccountId}`);
+    if (eggsStored) {
+        const eggsData = JSON.parse(eggsStored);
+        eggs = eggsData.map(data => {
+            const e = new Egg(data.genes);
+            e.x = data.x;
+            e.y = data.y;
+            e.createdTime = data.createdTime;
+            return e;
+        });
+    }
+}
+
+function saveLocked() {
+    if (!currentAccountId) return;
+    localStorage.setItem(`locked_${currentAccountId}`, JSON.stringify(lockedVariants));
+}
+
+function loadLocked() {
+    if (!currentAccountId) return;
+    const stored = localStorage.getItem(`locked_${currentAccountId}`);
+    lockedVariants = stored ? JSON.parse(stored) : {};
+}
+
+function toggleLockedVariant(variantName) {
+    if (lockedVariants[variantName]) {
+        delete lockedVariants[variantName];
+    } else {
+        lockedVariants[variantName] = true;
+    }
+    saveLocked();
+    updateWormList();
 }
 
 function resize() {
@@ -139,7 +188,10 @@ function checkLoad() {
         requestAnimationFrame(update);
 
         setInterval(() => {
-            eggs.push(new Egg(worms[0].genes));
+            if (worms.length > 0) {
+                eggs.push(new Egg(worms[0].genes));
+                saveWormsToStorage();
+            }
         }, 20000);
     }
 }
@@ -193,19 +245,33 @@ function updateWormList() {
     worms.forEach((worm, index) => {
         const li = document.createElement('li');
         const isPure = worm.name !== 'sâu lai';
+        const isLocked = lockedVariants[worm.genes.head];
 
-        li.innerHTML = `<span style="color: ${isPure ? '#9c27b0' : '#333'}; font-weight: ${isPure ? 'bold' : 'normal'}">${worm.name}</span> #${index + 1}`;
+        li.innerHTML = `<div class="worm-item">
+            <span style="color: ${isPure ? '#9c27b0' : '#333'}; font-weight: ${isPure ? 'bold' : 'normal'}">${worm.name}</span> #${index + 1}
+            ${isPure ? `<button class="lock-btn ${isLocked ? 'locked' : ''}" data-variant="${worm.genes.head}" title="${isLocked ? 'Bỏ khóa' : 'Khóa loại này'}">${isLocked ? '✓' : '○'}</button>` : ''}
+        </div>`;
         li.dataset.index = index;
 
         if (selectedWorm === worm) {
             li.classList.add('active');
         }
 
-        li.addEventListener('click', () => {
-            selectedWorm = worm;
-            updateWormList();
-            showGeneInfo(worm);
+        li.addEventListener('click', (e) => {
+            if (!e.target.classList.contains('lock-btn')) {
+                selectedWorm = worm;
+                updateWormList();
+                showGeneInfo(worm);
+            }
         });
+
+        const lockBtn = li.querySelector('.lock-btn');
+        if (lockBtn) {
+            lockBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleLockedVariant(e.target.dataset.variant);
+            });
+        }
 
         wormList.appendChild(li);
     });
@@ -265,8 +331,11 @@ class Worm {
 
     mutatePart(parentVariant) {
         if (Math.random() < 0.4) {
-            const otherVariants = variants.filter(v => v !== parentVariant);
-            return otherVariants[Math.floor(Math.random() * otherVariants.length)];
+            const availableVariants = variants.filter(v => v !== parentVariant && !lockedVariants[v]);
+            if (availableVariants.length === 0) {
+                return parentVariant;
+            }
+            return availableVariants[Math.floor(Math.random() * availableVariants.length)];
         }
         return parentVariant;
     }
@@ -535,9 +604,9 @@ function handleUp(e) {
         const egg = eggs[i];
         if (egg.isDragging) {
             egg.isDragging = false;
-            // Hiển thị modal chúc mừng
             showHatchModal(egg);
             eggs.splice(i, 1);
+            saveWormsToStorage();
         }
     }
 }
@@ -592,6 +661,17 @@ modal.addEventListener('click', (e) => {
     }
 });
 
+// --- ACCOUNT LISTENERS ---
+document.getElementById('accountSelect').addEventListener('change', (e) => {
+    switchAccount(e.target.value);
+});
+
+document.getElementById('newAccountBtn').addEventListener('click', () => {
+    createNewAccount();
+    loadWormsFromStorage();
+    updateWormList();
+});
+
 function update(timestamp) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -613,6 +693,7 @@ function update(timestamp) {
 
         if (dist < holeRadius && !egg.isDragging) {
             eggs.splice(i, 1);
+            saveWormsToStorage();
         } else {
             egg.draw();
         }
